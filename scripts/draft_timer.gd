@@ -14,7 +14,7 @@ const REWIND_ICON_PATH = "icons/rewind_icon.png"
 
 # Texts & formatting for the timer labels
 const SESSION_TIMER_LABEL = "Session Time: %02d:%02d:%02d"
-const TOTAL_TIMER_LABEL = "Total %s Wasted: %02d:%02d"
+const TOTAL_TIMER_LABEL = "Total %s Spent: %02d:%02d"
 const TEXT_IDENTIFIER = "draft_timer mod data: "
 
 # Offset for the labels.

@@ -1,7 +1,7 @@
 var script_class = "tool"
 
 # Set to true to show debug buttons
-const DEBUG_MODE = true
+const DEBUG_MODE = false
 
 # Tool parameters
 const TOOL_CATEGORY = "Settings"
@@ -10,13 +10,15 @@ const TOOL_NAME = "Draft Timer"
 
 # Icon paths
 const TOOL_ICON_PATH = "icons/clock_icon.png"
-const AFK_ICON_PATH = "icons/clock_icon.png"
 const REWIND_ICON_PATH = "icons/rewind_icon.png"
 
 # Texts & formatting for the timer labels
 const SESSION_TIMER_LABEL = "Session Time: %02d:%02d:%02d"
 const TOTAL_TIMER_LABEL = "Total %s Spent: %02d:%02d"
 const TEXT_IDENTIFIER = "draft_timer mod data: "
+
+# The path for storing the mod's settings.
+const MOD_DATA_PATH = "user://draft_timer_mod_data.txt"
 
 # Offset for the labels.
 # Should be a large negative value to make sure the user can't see the DD Text nodes containing our Data.
@@ -47,15 +49,15 @@ var afk_timer_range = null
 var session_text_node = null
 
 # Trackers for all the different times.
-var session_start_time = 0
-var session_time_passed = 0
-var total_time_passed = 0
-var update_timer = 0
-var afk_timer = 0
+var session_start_time = 0              # When the session started
+var session_time_passed = 0             # How much time has passed this session
+var total_time_passed = 0               # How much time has been spent on this map in total
+var update_timer = 0                    # How long it's been since the last update
+var afk_timer = 0                       # How long we've been AFK for
 
 # If the mouse doesn't move within the DD window, the player will be treated as afk after this many minutes.
 # If set to 0, the player will never afk.
-var minutes_to_afk = 1
+var minutes_to_afk = 15
 # If set true, the player will be flagged as AFK as soon as Dungeondraft is no longer focussed.
 var afk_when_unfocussed = false
 # The last known mouse position. If this doesn't change for a time, the player is flagged as afk.
@@ -70,6 +72,8 @@ var cache = []
 # Vanilla start function called by Dungeondraft when the mod is first loaded
 func start():
 
+    load_user_settings()
+
     # Fetch tool panel for level selection.
     tool_panel = Global.Editor.Toolset.CreateModTool(self, TOOL_CATEGORY, TOOL_ID, TOOL_NAME, Global.Root + TOOL_ICON_PATH)
 
@@ -81,14 +85,17 @@ func start():
 
     tool_panel.CreateSeparator()
 
+    # =====================================
     # Add user interface for choosing under which conditions the timer should stop.
 
     # If checked, the timer should stop whenever DD is not in focus.
+    # Uses the loaded user settings as default.
     afk_button = tool_panel.CreateCheckButton("Pause in Background", "", afk_when_unfocussed)
     afk_button.connect("pressed", self, "_on_afk_button_pressed")
     tool_panel.CreateNote("Stop the timer immediately upon interacting with a different window.")
 
     # If greater than 0, the timer should stop if the user does not move their mouse for this many minutes.
+    # Uses the loaded user settings as default.
     tool_panel.CreateLabel("Minutes Until AFK")
     afk_timer_range = tool_panel.CreateSlider("AFK Range", minutes_to_afk, 0, 60, 1, false)
     afk_timer_range.connect("value_changed", self, "_on_afk_slider_changed")
@@ -194,8 +201,6 @@ func update(delta):
     
     total_time_label.set_text(total_label)
 
-    print("Minutes: ", minutes_to_afk, ", Toggled: ", afk_when_unfocussed)
-
 
 
 
@@ -245,16 +250,49 @@ func createDataText(text_content = "[]"):
 
 
 
+# Saves the user settings as JSON in the MOD_DATA_PATH
+func save_user_settings():
+    var data = {
+        "afk_when_unfocussed": afk_when_unfocussed,
+        "minutes_to_afk": minutes_to_afk
+    }
+    var file = File.new()
+    file.open(MOD_DATA_PATH, File.WRITE)
+    file.store_line(JSON.print(data, "\t"))
+    file.close()
+
+
+# Loads the user settings from the MOD_DATA_PATH
+# If there is no file in the specified location, we stop the attempt and leave the default values as they are.
+func load_user_settings():
+    var file = File.new()
+    var error = file.open(MOD_DATA_PATH, File.READ)
+    
+    # If we cannot read the file, stop this attempt and leave the respective values at their default.
+    if error != 0:
+        print("[Draft Timer] Loading user settings: no user settings found")
+        return
+
+    var line = file.get_as_text()
+    var data = JSON.parse(line).result
+    file.close()
+    minutes_to_afk = data["minutes_to_afk"]
+    afk_when_unfocussed = data["afk_when_unfocussed"]
+
+    print("[Draft Timer] Loading user settings: successful")
+
+
 
 # Called when the AFK checkbox is toggled and updates the corresponding flag to match.
 func _on_afk_button_pressed():
     afk_when_unfocussed = afk_button.pressed
+    save_user_settings()
 
 
 # Called when the AFK slider is changed and updates the corresponding value to match.
 func _on_afk_slider_changed(new_value):
     minutes_to_afk = new_value
-
+    save_user_settings()
 
 
 
@@ -268,6 +306,7 @@ func _on_afk_slider_changed(new_value):
 # Debug function, very important. Prints whatever stuff I need to know at the moment.
 func _on_debug_button():
     print("========== DEBUG BUTTON ==========")
+    load_user_settings()
 #    fetchData()
 #    createDataText()
 #    print_levels()

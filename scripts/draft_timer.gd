@@ -1,7 +1,7 @@
 var script_class = "tool"
 
 # Set to true to show debug buttons
-const DEBUG_MODE = false
+const DEBUG_MODE = true
 
 # Tool parameters
 const TOOL_CATEGORY = "Settings"
@@ -10,6 +10,7 @@ const TOOL_NAME = "Draft Timer"
 
 # Icon paths
 const TOOL_ICON_PATH = "icons/clock_icon.png"
+const AFK_ICON_PATH = "icons/clock_icon.png"
 const REWIND_ICON_PATH = "icons/rewind_icon.png"
 
 # Texts & formatting for the timer labels
@@ -29,12 +30,18 @@ const DEFAULT_NODE_ID = 9573
 # Number of seconds between live updating the timers.
 const TIMER_UPDATE_INTERVAL = 1
 
+# The DD native sidebar where the tools are registered.
 var tool_panel = null
 
 # These time labels are currently buttons.
 # The reason is simply lazyness.
 var session_time_label = null
 var total_time_label = null
+
+# This button lets the user select whether the timers should pause while the DD window is unfocussed.
+var afk_button = null
+# This range lets the user select after how many minutes of inactivity the timer goes AFK.
+var afk_timer_range = null
 
 # The DD Text node in which the current session's time is being saved.
 var session_text_node = null
@@ -44,11 +51,20 @@ var session_start_time = 0
 var session_time_passed = 0
 var total_time_passed = 0
 var update_timer = 0
+var afk_timer = 0
+
+# If the mouse doesn't move within the DD window, the player will be treated as afk after this many minutes.
+# If set to 0, the player will never afk.
+var minutes_to_afk = 1
+# If set true, the player will be flagged as AFK as soon as Dungeondraft is no longer focussed.
+var afk_when_unfocussed = false
+# The last known mouse position. If this doesn't change for a time, the player is flagged as afk.
+var previous_mouse_position
 
 # This is where we temporarily store the previous sessions' values.
 var cache = []
 
-
+    
 
 
 # Vanilla start function called by Dungeondraft when the mod is first loaded
@@ -63,17 +79,31 @@ func start():
     session_time_label = tool_panel.CreateButton("Session Time", Global.Root + TOOL_ICON_PATH)
     total_time_label = tool_panel.CreateButton("Total Time Wasted", Global.Root + TOOL_ICON_PATH)
 
+    tool_panel.CreateSeparator()
+    afk_button = tool_panel.CreateCheckButton("Pause in Background", "", afk_when_unfocussed)
+
+    tool_panel.CreateLabel("Minutes Until AFK")
+    afk_timer_range = tool_panel.CreateSlider("AFK Range", minutes_to_afk, 0, 60, 1, false)
+    tool_panel.CreateNote("Set to 0 if you do not wish to want the timer to stop.")
+
+
     # If in DEBUG_MODE, print buttons for:
     # Debug button that prints a lot of useful information
     # Print cache button that prints the currently cached session times
     if DEBUG_MODE:
+        tool_panel.CreateSeparator()
+        tool_panel.CreateLabel("Debug Tools")
+
         var debug_button = tool_panel.CreateButton("DEBUG", Global.Root + REWIND_ICON_PATH)
         debug_button.connect("pressed", self, "_on_debug_button")
 
         var print_cache_button = tool_panel.CreateButton("PRINT CACHE", Global.Root + REWIND_ICON_PATH)
         print_cache_button.connect("pressed", self, "_on_print_cache_button")
 
+    
+    
     tool_panel.EndSection()
+
 
     print("[Draft Timer] UI Layout: successful")
     
@@ -98,6 +128,28 @@ func start():
 # Vanilla update called by Godot every frame.
 # Used to update the timers^^
 func update(delta):
+
+    # Update or reset the AFK timer based on whether the mouse has been used since the previous update.
+    if Global.WorldUI.get_global_mouse_position() != previous_mouse_position:
+        previous_mouse_position = Global.WorldUI.get_global_mouse_position()
+        afk_timer = 0
+    else:
+        afk_timer += delta
+    
+    # If we have been AFK for longer than the user-defined amount in minutes, we skip the timer updates.
+    # If AFK is 0 or less, that means the user does not want AFK tracking.
+    if minutes_to_afk > 0 and afk_timer > minutes_to_afk * 60:
+        return
+    
+    # If the windowow is not focussed, we skip the timer updates.
+    # However we continue as normal if the user has declared that they do not want to AFK when unfocussing.
+    if afk_when_unfocussed and not OS.is_window_focused():
+        return
+
+
+    # If we pass the AFK checks, we begin updating our timers.
+    # We do this in steps of TIMER_UPDATE_INTERVAL seconds.
+    # This should save resources and we don't want floats anyway.
     update_timer += delta
     if update_timer < TIMER_UPDATE_INTERVAL:
         return
@@ -132,8 +184,6 @@ func update(delta):
         total_label = TOTAL_TIMER_LABEL % ["Hours", hours, minutes % 60]
     
     total_time_label.set_text(total_label)
-
-
 
 
 # Should be called only when the map is loaded.
@@ -199,8 +249,8 @@ func _on_debug_button():
 #    fetchData()
 #    createDataText()
 #    print_levels()
-#    print_methods(Global.World)
-#    print_properties(Global.World)
+#    print_methods()
+#    print_properties(Global)
 #    print_signals(Global.World)
 #    Global.World.print_tree_pretty()
 

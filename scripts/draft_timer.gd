@@ -96,7 +96,7 @@ func start():
 
     # If greater than 0, the timer should stop if the user does not move their mouse for this many minutes.
     # Uses the loaded user settings as default.
-    tool_panel.CreateLabel("Minutes Until AFK")
+    tool_panel.CreateLabel("Minutes until AFK")
     afk_timer_range = tool_panel.CreateSlider("AFK Range", minutes_to_afk, 0, 60, 1, false)
     afk_timer_range.connect("value_changed", self, "_on_afk_slider_changed")
     tool_panel.CreateNote("Stop the timer after not interacting with Dungeondraft for this many minutes. Set to 0 to disable this option.")

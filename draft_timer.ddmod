@@ -1,7 +1,7 @@
 {
 	"name": "Draft Timer",
 	"unique_id": "Lievven.Draft_Timer",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"author": "Lievven",
 	"description": "Keep track of the time spent working on your map with this inbuilt timer.",
 	"dd_version": "1.1.0.5"

@@ -80,11 +80,20 @@ func start():
     total_time_label = tool_panel.CreateButton("Total Time Wasted", Global.Root + TOOL_ICON_PATH)
 
     tool_panel.CreateSeparator()
-    afk_button = tool_panel.CreateCheckButton("Pause in Background", "", afk_when_unfocussed)
 
+    # Add user interface for choosing under which conditions the timer should stop.
+
+    # If checked, the timer should stop whenever DD is not in focus.
+    afk_button = tool_panel.CreateCheckButton("Pause in Background", "", afk_when_unfocussed)
+    afk_button.connect("pressed", self, "_on_afk_button_pressed")
+    tool_panel.CreateNote("Stop the timer immediately upon interacting with a different window.")
+
+    # If greater than 0, the timer should stop if the user does not move their mouse for this many minutes.
     tool_panel.CreateLabel("Minutes Until AFK")
     afk_timer_range = tool_panel.CreateSlider("AFK Range", minutes_to_afk, 0, 60, 1, false)
-    tool_panel.CreateNote("Set to 0 if you do not wish to want the timer to stop.")
+    afk_timer_range.connect("value_changed", self, "_on_afk_slider_changed")
+    tool_panel.CreateNote("Stop the timer after not interacting with Dungeondraft for this many minutes. Set to 0 to disable this option.")
+
 
 
     # If in DEBUG_MODE, print buttons for:
@@ -185,6 +194,10 @@ func update(delta):
     
     total_time_label.set_text(total_label)
 
+    print("Minutes: ", minutes_to_afk, ", Toggled: ", afk_when_unfocussed)
+
+
+
 
 # Should be called only when the map is loaded.
 # Searches all Text nodes for the mod's identifier and adds any elements to the cache.
@@ -233,6 +246,15 @@ func createDataText(text_content = "[]"):
 
 
 
+# Called when the AFK checkbox is toggled and updates the corresponding flag to match.
+func _on_afk_button_pressed():
+    afk_when_unfocussed = afk_button.pressed
+
+
+# Called when the AFK slider is changed and updates the corresponding value to match.
+func _on_afk_slider_changed(new_value):
+    minutes_to_afk = new_value
+
 
 
 
@@ -250,7 +272,7 @@ func _on_debug_button():
 #    createDataText()
 #    print_levels()
 #    print_methods()
-#    print_properties(Global)
+#    print_properties(Global.World)
 #    print_signals(Global.World)
 #    Global.World.print_tree_pretty()
 
